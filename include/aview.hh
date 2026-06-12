@@ -22,8 +22,41 @@ template <typename T>
 class Field {
 public:
   Field() = default;
-   
-}
+
+  static Field<T> value(T value) {
+    Field<T> field;
+    field.valid_ = true;
+    field.status_ = Status::ok;
+    field.value_ = std::move(value);
+    return field;
+  }
+
+  static Field<T> unavailable(Status status) {
+    Field<T> field;
+    field.valid_ = false;
+    field.status_ = status;
+    return field;
+  }
+
+  bool valid() const { return valid_; }
+
+  explicit operator bool() const { return valid_; }
+
+  const T& value() const { return value_; }
+
+  T& get() { return value_; }
+  
+  // Return the value if valid, otherwise return the provided default value.
+  const T& value_or(const T& default_value) const {
+    return valid_ ? value_ : default_value;
+  }
+
+  Status status() const { return status_; }
+private:
+  bool valid_ = false;
+  Status status_ = Status::not_found;
+  T value_{};
+};
 
 // Architecture
 
