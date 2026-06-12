@@ -166,10 +166,68 @@ struct PerfCounterInfo {
 
 };
 // Block devices
+
+struct BlockDeviceInfo {
+
+};
+
+struct BlockDeviceList {
+
+};
+
 // Network
+
+struct NetInterfaceInfo {
+
+};
+
+struct NetInterfaceList {
+
+};
+
 // Thermal / Power
+
+struct ThermalZoneInfo {
+
+};
+
+struct ThermalInfo {
+
+};
+
+struct PowerInfo {
+
+};
+
+
 // Virtualization / platform
+
+struct VirtualizationInfo {
+
+};
+
+struct PlatformInfo {
+
+};
+
 // Full system info
+
+struct SystemInfo {
+  OsInfo os_info;
+  CpuInfo cpu_info;
+  IsaFeatures isa_features;
+  CacheList cache_list;
+  MemoryInfo memory_info;
+  PciDeviceList pci_devices;
+  GpuList gpu_list;
+  PerfCounterAvailability perf_counters;
+  BlockDeviceList block_devices;
+  NetInterfaceList net_interfaces;
+  ThermalInfo thermal_info;
+  PowerInfo power_info;
+  VirtualizationInfo virtualization_info;
+  PlatformInfo platform_info;
+};
 // Collection categories
 //
 enum class CollectCategory : std::uint64_t {
