@@ -58,6 +58,14 @@ private:
   T value_{};
 };
 
+// short-hand fields
+using BoolField = Field<bool>;
+using U32Field = Field<std::uint32_t>;
+using U64Field = Field<std::uint64_t>;
+using I64Field = Field<std::int64_t>;
+using StringField = Field<std::string>;
+
+
 // Architecture
 
 enum class ArchType{
@@ -76,16 +84,87 @@ std::string to_string(ArchType arch);
 
 // OS info
 
+struct OsInfo {
+
+};
 
 // CPU info
+struct CpuToplogyEntry {
 
-// ISA info
+};
+
+struct CpuInfo {
+
+};
+
+
+// ISA Features
+
+struct IsaFeatures {
+
+};
 
 // Cache info
+
+enum class CacheType {
+
+};
+
+std::string to_string(CacheType type);
+
+struct CacheInfo {
+  
+};
+
+struct CacheList {
+
+};
+
 // Memory / NUMA info
+
+struct NumaNodeInfo {
+
+};
+
+struct MemoryInfo {
+  
+};
+
 // PCI info
+
+struct PciDeviceInfo {
+
+};
+
+struct PciDeviceList {
+
+};
+
 // GPU info
+
+enum class GpuVendor {
+
+};
+
+std::string to_string(GpuVendor vendor);
+
+struct GpuInfo {
+
+};
+
+struct GpuList {
+
+};
+
 // Performance Counter info
+
+struct PerfCounterAvailability {
+
+};
+
+struct PerfCounterInfo {
+
+};
 // Block devices
 // Network
 // Thermal / Power
