@@ -67,7 +67,6 @@ using StringField = Field<std::string>;
 
 
 // Architecture
-
 enum class ArchType{
   unknown,
   x86,
@@ -103,7 +102,7 @@ struct OsInfo {
 };
 
 // CPU info
-struct CpuToplogyEntry {
+struct CpuTopologyEntry {
   U32Field logical_id;
   U32Field core_id;
   U32Field package_id;
@@ -124,11 +123,27 @@ struct CpuInfo {
   U64Field present_cpu_count; // /sys/devices/system/cpu/present
   U64Field online_cpu_count; // /sys/devices/system/cpu/online
   U64Field possible_cpu_count; // /sys/devices/system/cpu/possible
+  U64Field sockets;
+  
+  U64Field cores_per_socket;
+  U64Field threads_per_core;
+
+  U64Field family;
+  U64Field model;
+  U64Field stepping;
+  StringField microcode;
+
+  U64Field physical_address_bits;
+  U64Field virtual_address_bits;
+
+  BoolField is_virtualized;
+  StringField hypervisor_vendor;
+
+  std::vector<CpuTopologyEntry> topology;
 };
 
 
 // ISA Features
-
 struct IsaFeatures {
    // x86/x86_64
   BoolField x86_fpu;
@@ -173,13 +188,29 @@ struct IsaFeatures {
   BoolField x86_rdtscp;
 
   // arm/aarch64
-
+  BoolField arm_neon;
+  BoolField arm_asimd;
+  BoolField arm_sve;
+  BoolField arm_sve2;
+  BoolField arm_aes;
+  BoolField arm_sha1;
+  BoolField arm_sha2;
+  BoolField arm_crc32;
+  BoolField arm_pauth;
   // riscv
+  BoolField riscv_i;
+  BoolField riscv_m;
+  BoolField riscv_a;
+  BoolField riscv_f;
+  BoolField riscv_d;
+  BoolField riscv_c;
+  BoolField riscv_v;
+  BoolField riscv_h;
 
+  StringField raw_flags;
 };
 
 // Cache info
-
 enum class CacheType {
   unknown,
   data,
@@ -208,35 +239,88 @@ struct CacheList {
 };
 
 // Memory / NUMA info
-
 struct NumaNodeInfo {
-
+  U32Field node_id;
+  U64Field total_kb;
+  U64Field free_kb;
+  StringField cpu_list;
 };
 
 struct MemoryInfo {
-  
+  U64Field total_kb;
+  U64Field free_kb;
+  U64Field available_kb;
+  U64Field buffers_kb;
+  U64Field cached_kb;
+
+  U64Field swap_total_kb;
+  U64Field swap_free_kb;
+
+  U64Field page_size_bytes;
+  U64Field hugepage_size_kb;
+  U64Field hugepages_total;
+  U64Field hugepages_free;
+
+  BoolField transparent_hugepages_enabled;
+
+  std::vector<NumaNodeInfo> numa_nodes;
 };
 
 // PCI info
-
 struct PciDeviceInfo {
+  StringField pci_address;
 
+  StringField vendor_id;
+  StringField device_id;
+  StringField subsystem_vendor_id;
+  StringField subsystem_device_id;
+  StringField class_id;
+
+  StringField driver;
+  I64Field numa_node;
+  StringField iommu_group;
+
+  StringField resource_path;
 };
 
 struct PciDeviceList {
-
+  std::vector<PciDeviceInfo> entries;
 };
 
 // GPU info
 
 enum class GpuVendor {
-
+  unknown,
+  intel,
+  amd,
+  nvidia
 };
 
 std::string to_string(GpuVendor vendor);
 
 struct GpuInfo {
+  GpuVendor vendor = GpuVendor::unknown;
+  
+  StringField name;
+  StringField drm_card;
+  StringField render_node;
+  StringField pci_address;
 
+  StringField vendor_id;
+  StringField device_id;
+  StringField driver;
+
+  U64Field vram_total_bytes;
+  U64Field vram_used_bytes;
+
+  U64Field temp_millidegree_c;
+  U64Field power_mw;
+
+  U64Field graphics_clock_mhz;
+  U64Field memory_clock_mhz;
+
+  BoolField cuda_available;
+  StringField cuda_compute_capability;
 };
 
 struct GpuList {
@@ -246,16 +330,39 @@ struct GpuList {
 // Performance Counter info
 
 struct PerfCounterAvailability {
-
+  BoolField cpu_cycles;
+  BoolField instructions;
+  BoolField cache_references;
+  BoolField cache_misses;
+  BoolField branch_instructions;
+  BoolField branch_misses;
+  BoolField bus_cycles;
+  BoolField ref_cpu_cycles;
 };
 
 struct PerfCounterInfo {
+  U64Field perf_event_paranoid;
 
+  PerfCounterAvailability available;
+
+  BoolField rdtsc_available;
+  BoolField rdtscp_available;
+  BoolField invariant_tsc;
 };
 // Block devices
 
 struct BlockDeviceInfo {
+  StringField name;
+  StringField model;
+  StringField vendor;
+  StringField path;
 
+  BoolField rotational;
+  U64Field size_bytes;
+  U64Field logical_block_size;
+  U64Field physical_block_size;
+
+  StringField scheduler;
 };
 
 struct BlockDeviceList {
@@ -263,9 +370,18 @@ struct BlockDeviceList {
 };
 
 // Network
-
 struct NetInterfaceInfo {
+  StringField name;
+  StringField mac_address;
+  StringField ipv4_addresses;
+  StringField ipv6_addresses;
 
+  U64Field mtu;
+  U64Field speed_mbps;
+
+  StringField duplex;
+  BoolField carrier;
+  StringField driver;
 };
 
 struct NetInterfaceList {
@@ -284,7 +400,14 @@ struct ThermalInfo {
 };
 
 struct PowerInfo {
+  BoolField on_battery;
+  StringField battery_status;
+  U64Field battery_capacity_percent;
 
+  StringField cpu_governor;
+  U64Field cpu_current_freq_mhz;
+  U64Field cpu_min_freq_mhz;
+  U64Field cpu_max_freq_mhz;
 };
 
 
