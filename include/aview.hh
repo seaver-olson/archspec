@@ -121,7 +121,9 @@ struct CpuInfo {
   StringField brand;
   StringField model_name;
 
-  U64Field logical_cores;
+  U64Field present_cpu_count; // /sys/devices/system/cpu/present
+  U64Field online_cpu_count; // /sys/devices/system/cpu/online
+  U64Field possible_cpu_count; // /sys/devices/system/cpu/possible
 };
 
 
@@ -179,17 +181,30 @@ struct IsaFeatures {
 // Cache info
 
 enum class CacheType {
-
+  unknown,
+  data,
+  instruction,
+  unified
 };
 
 std::string to_string(CacheType type);
 
 struct CacheInfo {
-  
+  U32Field cpu_id;
+
+  U32Field level;
+  CacheType type = CacheType::unknown;
+
+  U64Field size; // in bytes
+  U64Field line_size; // in bytes
+  U64Field associativity; // number of ways
+  U64Field sets;
+
+  StringField shared_cpu_list;
 };
 
 struct CacheList {
-
+  std::vector<CacheInfo> entries;
 };
 
 // Memory / NUMA info
