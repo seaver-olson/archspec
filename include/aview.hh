@@ -496,6 +496,41 @@ inline bool has_category(CollectCategory flags, CollectCategory category) {
   return static_cast<std::uint64_t>(flags & category) != 0;
 }
 
+struct CollectOptions {
+  CollectCategory categories = CollectCategory::all;
 
+  //modify later, lib should be read only and safe by default
+  bool allow_slow_probes = false;
+  bool allow_vendor_libraries = false;
+  bool allow_perf_open = false;
+};
+
+class Collector {
+public:
+  Collector() = default;
+  explicit Collector(CollectOptions options);
+
+  const CollectOptions& options() const;
+  void set_options(const CollectOptions& options);
+
+  SystemInfo collect() const;
+
+  OsInfo collect_os() const;
+  CpuInfo collect_cpu() const;
+  IsaFeatures collect_isa() const;
+  CacheList collect_cache() const;
+  MemoryInfo collect_memory() const;
+  PciDeviceList collect_pci() const;
+  GpuList collect_gpu() const;
+  PerfCounterAvailability collect_perf() const;
+  BlockDeviceList collect_block() const;
+  NetInterfaceList collect_net() const;
+  ThermalInfo collect_thermal() const;
+  PowerInfo collect_power() const;
+  VirtualizationInfo collect_virtualization() const;
+  PlatformInfo collect_platform() const;
+private:
+  CollectOptions options_;
+};
 
 }
