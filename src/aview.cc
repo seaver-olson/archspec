@@ -1,5 +1,12 @@
 #include "aview.hh"
 
+#include <sys/utsname.h>
+#include <unistd.h>
+
+#include <fstream>
+#include <sstream>
+#include <string>
+
 namespace archspec {
 
 std::string to_string(Status status) {
@@ -52,6 +59,79 @@ std::string to_string(GpuVendor vendor) {
 
 bool available(Status status) {
   return status == Status::ok;
+}
+
+//private helpers
+namespace {
+std::string read_first_line(const std::string& path){
+  std::ifstream file(path);
+  std::string line;
+
+  if (!file.is_open()){
+    return {};
+  }
+
+  std::getline(file, line);
+  return line;
+}
+
+ArchType arch_from_machine(const std::string& machine){
+  if (machine == "x86_64" || machine == "amd64"){
+    return ArchType::x86_64;
+  } else if (machine == "i386" || machine == "i686"){
+    return ArchType::x86;
+  } else if (machine == "armv7l" || machine == "armv8l"){
+    return ArchType::arm;
+  } else if (machine == "aarch64"){
+    return ArchType::aarch64;
+  } else if (machine == "riscv32"){
+    return ArchType::riscv32;
+  } else if (machine == "riscv64"){
+    return ArchType::riscv64;
+  } else if (machine == "ppc64le"){
+    return ArchType::ppc64;
+  } else if (machine == "s390x"){
+    return ArchType::s390x;
+  }
+
+  return ArchType::unknown;
+}
+
+std::uint64_t count_cpu_range_list(const std::string& text){
+
+}
+
+} // end of private helpers
+
+Collector::Collector(CollectOptions options) : options_(options) {}
+
+const CollectOptions& Collector::options() const {
+  return options_;
+}
+
+void Collector::set_options(const CollectOptions& options) {
+  options_ = options;
+}
+
+SystemInfo Collector::collect() const {
+  SystemInfo info;
+
+  if (has_category(options_.categories, CollectCategory::os)){ info.os_info = collect_os();}
+  if (has_category(options_.categories, CollectCategory::cpu)){ info.cpu_info = collect_cpu();}
+  if (has_category(options_.categories, CollectCategory::isa)){ info.isa_features = collect_isa();}
+  if (has_category(options_.categories, CollectCategory::cache)){ info.cache_list = collect_cache();}
+  if (has_category(options_.categories, CollectCategory::memory)){ info.memory_info = collect_memory();}
+  if (has_category(options_.categories, CollectCategory::pci)){ info.pci_devices = collect_pci();}
+  if (has_category(options_.categories, CollectCategory::gpu)){ info.gpu_list = collect_gpu();}
+  if (has_category(options_.categories, CollectCategory::perf)){ info.perf_info = collect_perf();}
+  if (has_category(options_.categories, CollectCategory::block)){ info.block_devices = collect_block();}
+  if (has_category(options_.categories, CollectCategory::net)){ info.net_interfaces = collect_net();}
+  if (has_category(options_.categories, CollectCategory::thermal)){ info.thermal_info = collect_thermal();}
+  if (has_category(options_.categories, CollectCategory::power)){ info.power_info = collect_power();}
+  if (has_category(options_.categories, CollectCategory::virtualization)){ info.virtualization_info = collect_virtualization();}
+  if (has_category(options_.categories, CollectCategory::platform)){ info.platform_info = collect_platform();}
+  
+  return info;
 }
 
 }
