@@ -442,7 +442,6 @@ struct PlatformInfo {
 };
 
 // Full system info
-
 struct SystemInfo {
   OsInfo os_info;
   CpuInfo cpu_info;
@@ -504,7 +503,7 @@ struct CollectOptions {
   bool allow_vendor_libraries = false;
   bool allow_perf_open = false;
 };
-
+ 
 class Collector {
 public:
   Collector() = default;
@@ -532,5 +531,48 @@ public:
 private:
   CollectOptions options_;
 };
+
+// convenience functions for one-off collection
+
+SystemInfo collect_system();
+SystemInfo collect_system(const CollectOptions& options);
+
+OsInfo collect_os();
+CpuInfo collect_cpu();
+IsaFeatures collect_isa();
+CacheList collect_cache();
+MemoryInfo collect_memory();
+PciDeviceList collect_pci();
+GpuList collect_gpu();
+PerfCounterAvailability collect_perf();
+BlockDeviceList collect_block();
+NetInterfaceList collect_net();
+ThermalInfo collect_thermal();
+PowerInfo collect_power();
+VirtualizationInfo collect_virtualization();
+PlatformInfo collect_platform();
+
+// Json helper functions
+std::string to_json(const SystemInfo& info);
+std::string to_json(const OsInfo& info);
+std::string to_json(const CpuInfo& info);
+std::string to_json(const IsaFeatures& features);
+std::string to_json(const CacheList& cache_list);
+std::string to_json(const MemoryInfo& memory_info);
+std::string to_json(const PciDeviceList& pci_devices);
+std::string to_json(const GpuList& gpu_list);
+std::string to_json(const PerfCounterAvailability& perf_counters);
+std::string to_json(const BlockDeviceList& block_devices);
+std::string to_json(const NetInterfaceList& net_interfaces);
+std::string to_json(const ThermalInfo& thermal_info);
+std::string to_json(const PowerInfo& power_info);
+std::string to_json(const VirtualizationInfo& virtualization_info);
+std::string to_json(const PlatformInfo& platform_info);
+
+bool available(Status status);
+
+template <typename T>
+T value_or(const Field<T>& field, const T& default_value) {
+  return field.valid() ? field.value() : default_value;
 
 }
