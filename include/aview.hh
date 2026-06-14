@@ -573,7 +573,9 @@ std::string to_json(const PlatformInfo& platform_info);
 bool available(Status status);
 
 template <typename T>
-T value_or(const Field<T>& field, const T& default_value) {
+T value_or(const Field<T>& field, const T& default_value){
   return field.valid() ? field.value() : default_value;
+
+}
 
 }
