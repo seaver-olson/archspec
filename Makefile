@@ -4,8 +4,8 @@ LDFLAGS  ?=
 
 TARGET   ?= app
 
-SRCS := $(wildcard src/*.cpp)
-OBJS := $(SRCS:.cpp=.o)
+SRCS := $(wildcard src/*.cc)
+OBJS := $(SRCS:.cc=.o)
 
 .PHONY: all clean
 
@@ -14,7 +14,7 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CXX) $(OBJS) -o $@ $(LDFLAGS)
 
-src/%.o: src/%.cpp
+src/%.o: src/%.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:

@@ -1,5 +1,6 @@
 #include "aview.hh"
 
+#include <iostream>
 
 namespace archspec {
 
@@ -95,4 +96,12 @@ SystemInfo collect_system(const CollectOptions& options) {
   return Collector{options}.collect();
 }
 
+}
+
+int main() {
+  auto system_info = archspec::collect_system();
+  std::cout << "Kernel: " << system_info.os_info.kernel_name.value_or("unknown") << " " 
+            << system_info.os_info.kernel_version.value_or("unknown") << " "
+            << system_info.os_info.kernel_release.value_or("unknown") << std::endl;
+  return 0;
 }
