@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <string>
+#include <utility> 
 #include <vector>
 
 namespace archspec {
@@ -166,7 +167,7 @@ struct IsaFeatures {
 
   BoolField x86_aes;
   BoolField x86_sha;
-  BoolField x86_pc1mu1qdq;
+  BoolField x86_pclmulqdq;
 
   BoolField x86_rdrand;
   BoolField x86_rdseed;
@@ -450,7 +451,7 @@ struct SystemInfo {
   MemoryInfo memory_info;
   PciDeviceList pci_devices;
   GpuList gpu_list;
-  PerfCounterAvailability perf_counters;
+  PerfCounterInfo perf_info;
   BlockDeviceList block_devices;
   NetInterfaceList net_interfaces;
   ThermalInfo thermal_info;
@@ -521,7 +522,7 @@ public:
   MemoryInfo collect_memory() const;
   PciDeviceList collect_pci() const;
   GpuList collect_gpu() const;
-  PerfCounterAvailability collect_perf() const;
+  PerfCounterInfo collect_perf() const;
   BlockDeviceList collect_block() const;
   NetInterfaceList collect_net() const;
   ThermalInfo collect_thermal() const;
@@ -544,7 +545,7 @@ CacheList collect_cache();
 MemoryInfo collect_memory();
 PciDeviceList collect_pci();
 GpuList collect_gpu();
-PerfCounterAvailability collect_perf();
+PerfCounterInfo collect_perf();
 BlockDeviceList collect_block();
 NetInterfaceList collect_net();
 ThermalInfo collect_thermal();
@@ -561,7 +562,7 @@ std::string to_json(const CacheList& cache_list);
 std::string to_json(const MemoryInfo& memory_info);
 std::string to_json(const PciDeviceList& pci_devices);
 std::string to_json(const GpuList& gpu_list);
-std::string to_json(const PerfCounterAvailability& perf_counters);
+std::string to_json(const PerfCounterInfo& perf_info);
 std::string to_json(const BlockDeviceList& block_devices);
 std::string to_json(const NetInterfaceList& net_interfaces);
 std::string to_json(const ThermalInfo& thermal_info);
