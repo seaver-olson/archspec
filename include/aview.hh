@@ -412,7 +412,6 @@ struct PowerInfo {
 
 
 // Virtualization / platform
-
 struct VirtualizationInfo {
   BoolField running_under_hypervisor;
   StringField hypervisor_vendor;
@@ -461,7 +460,9 @@ struct SystemInfo {
   PlatformInfo platform_info;
 };
 // Collection categories
-//
+// Using bit flags to allow all categories to be collected in one variable i.e.
+// os == 00000001, cpu == 00000010, isa == 00000100
+// collect_categories = os | cpu | isa == 00000111
 enum class CollectCategory : std::uint64_t {
     none           = 0,
 
@@ -482,5 +483,19 @@ enum class CollectCategory : std::uint64_t {
 
     all            = ~0ull
 };
+// override operators for bitwise operations to convert enum to uint64_t before performing op then casting back to the enum
+inline CollectCategory operator|(CollectCategory a, CollectCategory b) {
+  return static_cast<CollectCategory>(static_cast<std::uint64_t>(a) | static_cast<std::uint64_t>(b));
+}
+
+inline CollectCategory operator&(CollectCategory a, CollectCategory b) {
+  return static_cast<CollectCategory>(static_cast<std::uint64_t>(a) & static_cast<std::uint64_t>(b));
+}
+
+inline bool has_category(CollectCategory flags, CollectCategory category) {
+  return static_cast<std::uint64_t>(flags & category) != 0;
+}
+
+
 
 }
