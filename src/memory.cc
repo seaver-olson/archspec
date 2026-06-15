@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <unistd.h>
+#include <sstream>
 
 namespace archspec {
 
@@ -19,27 +20,19 @@ MemoryInfo Collector::collect_memory() const {
   std::uint64_t value = 0;
   std::string unit;
 
-  while (file >> key >> value >> unit) {
+  std::string line;
+  while (std::getline(file, line)) {
+    std::istringstream iss(line);
+
+    std::string key;
+    std::uint64_t value = 0;
+
+    if (!(iss >> key >> value)) {
+      continue;
+    }
+
     if (key == "MemTotal:") {
       info.total_kb = U64Field::value(value);
-    } else if (key == "MemFree:") {
-      info.free_kb = U64Field::value(value);
-    } else if (key == "MemAvailable:") {
-      info.available_kb = U64Field::value(value);
-    } else if (key == "Buffers:") {
-      info.buffers_kb = U64Field::value(value);
-    } else if (key == "Cached:") {
-      info.cached_kb = U64Field::value(value);
-    } else if (key == "SwapTotal:") {
-      info.swap_total_kb = U64Field::value(value);
-    } else if (key == "SwapFree:") {
-      info.swap_free_kb = U64Field::value(value);
-    } else if (key == "Hugepagesize:") {
-      info.hugepage_size_kb = U64Field::value(value);
-    } else if (key == "HugePages_Total:") {
-      info.hugepages_total = U64Field::value(value);
-    } else if (key == "HugePages_Free:") {
-      info.hugepages_free = U64Field::value(value);
     }
   }
 
