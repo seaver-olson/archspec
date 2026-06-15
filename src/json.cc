@@ -100,6 +100,70 @@ private:
   bool first_ = true;
   std::ostringstream out_;
 };
+
+std::string field_to_json(const StringField& field) {
+  JsonObject obj;
+
+  obj.add_bool("valid", field.valid());
+  obj.add_string("status", to_string(field.status()));
+  if (field.valid()) {
+    obj.add_string("value", field.value());
+  }
+  return obj.str();
+}
+
+std::string field_to_json(const BoolField& field) {
+  JsonObject obj;
+
+  obj.add_bool("valid", field.valid());
+  obj.add_string("status", to_string(field.status()));
+
+  if (field.valid()) {
+    obj.add_bool("value", field.value());
+  }
+
+  return obj.str();
+}
+
+std::string field_to_json(const U32Field& field) {
+  JsonObject obj;
+
+  obj.add_bool("valid", field.valid());
+  obj.add_string("status", to_string(field.status()));
+
+  if (field.valid()) {
+    obj.add_u64("value", field.value());
+  }
+
+  return obj.str();
+}
+
+std::string field_to_json(const U64Field& field) {
+  JsonObject obj;
+
+  obj.add_bool("valid", field.valid());
+  obj.add_string("status", to_string(field.status()));
+
+  if (field.valid()) {
+    obj.add_u64("value", field.value());
+  }
+
+  return obj.str();
+}
+
+std::string field_to_json(const I64Field& field) {
+  JsonObject obj;
+
+  obj.add_bool("valid", field.valid());
+  obj.add_string("status", to_string(field.status()));
+
+  if (field.valid()) {
+    obj.add_i64("value", field.value());
+  }
+
+  return obj.str();
+}
+
 } // anonymous namespace
 
 std::string to_json(const SystemInfo& info) {
