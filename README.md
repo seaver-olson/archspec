@@ -5,3 +5,11 @@ ArchSpec is a C++ library for collecting hardware and software information about
 This project is still in early development and is not ready for production use.
 
 Any help or advice is greatly appreciated.
+
+
+to make the summary test file run 
+```bash
+g++ -std=c++17 -Wall -Wextra -O2 -Iinclude \
+  src/*.cc examples/summary.cc \
+  -o archspec-summary
+```
