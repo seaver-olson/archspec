@@ -163,7 +163,7 @@ struct IsaFeatures {
   BoolField x86_avx512dq;
   BoolField x86_avx512cd;
   BoolField x86_avx512bw;
-  BoolField x86_avx512v1;
+  BoolField x86_avx512vl;
 
   BoolField x86_aes;
   BoolField x86_sha;
@@ -342,7 +342,7 @@ struct PerfCounterAvailability {
 };
 
 struct PerfCounterInfo {
-  U64Field perf_event_paranoid;
+  I64Field perf_event_paranoid;
 
   PerfCounterAvailability available;
 
@@ -498,6 +498,13 @@ inline bool has_category(CollectCategory flags, CollectCategory category) {
 
 struct CollectOptions {
   CollectCategory categories = CollectCategory::all;
+
+  // Alternate roots make the collectors testable against captured /proc and /sys
+  // trees while preserving normal host collection by default.
+  std::string procfs_root = "/proc";
+  std::string sysfs_root = "/sys";
+  std::string etc_root = "/etc";
+  std::string dev_root = "/dev";
 
   //modify later, lib should be read only and safe by default
   bool allow_slow_probes = false;

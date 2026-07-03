@@ -1,47 +1,45 @@
 #include "aview.hh"
+#include "internal.hh"
 
 #include <sys/utsname.h>
 #include <unistd.h>
-#include <fstream>
-
+#include <map>
 
 namespace archspec {
-//private helpers
 namespace {
-std::string read_first_line(const std::string& path){
-  std::ifstream file(path);
+
+detail::KeyValueMap parse_os_release(const std::string& text) {
+  detail::KeyValueMap values;
+  std::istringstream in(text);
   std::string line;
 
-  if (!file.is_open()){
-    return {};
+  while (std::getline(in, line)) {
+    line = detail::trim(line);
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    std::size_t equals = line.find('=');
+    if (equals == std::string::npos) {
+      continue;
+    }
+
+    values[detail::trim(line.substr(0, equals))] =
+        detail::unquote_value(line.substr(equals + 1));
   }
 
-  std::getline(file, line);
-  return line;
+  return values;
 }
 
-ArchType arch_from_machine(const std::string& machine){
-  if (machine == "x86_64" || machine == "amd64"){
-    return ArchType::x86_64;
-  } else if (machine == "i386" || machine == "i686"){
-    return ArchType::x86;
-  } else if (machine == "armv7l" || machine == "armv8l"){
-    return ArchType::arm;
-  } else if (machine == "aarch64"){
-    return ArchType::aarch64;
-  } else if (machine == "riscv32"){
-    return ArchType::riscv32;
-  } else if (machine == "riscv64"){
-    return ArchType::riscv64;
-  } else if (machine == "ppc64le"){
-    return ArchType::ppc64;
-  } else if (machine == "s390x"){
-    return ArchType::s390x;
-  }
+StringField os_release_field(
+    const detail::KeyValueMap& values,
+    const std::vector<std::string>& keys
+) {
+  return detail::string_from_map(values, keys);
+}
 
-  return ArchType::unknown;
-}
-}
+} // namespace
+
 OsInfo Collector::collect_os() const {
   OsInfo info;
 
@@ -69,17 +67,26 @@ OsInfo Collector::collect_os() const {
 
   info.word_size = U64Field::value(static_cast<std::uint64_t>(sizeof(void*) * 8));
 
-  // Check endianness
   std::uint16_t test = 1;
   bool little = *reinterpret_cast<unsigned char*>(&test) == 1;
   info.endianness = StringField::value(little ? "little" : "big");
 
-  info.cmdline = StringField::value(read_first_line("/proc/cmdline"));
+  info.cmdline = detail::read_string_field(
+      detail::proc_path(options_, "/cmdline"),
+      false
+  );
 
-  // Minimal /etc/os-release parsing coming soon...
-  info.distro_name = StringField::unavailable(Status::unsupported);
-  info.distro_version = StringField::unavailable(Status::unsupported);
-  info.distro_id = StringField::unavailable(Status::unsupported);
+  detail::ReadResult os_release = detail::read_file(detail::etc_path(options_, "/os-release"));
+  if (os_release.status != Status::ok) {
+    info.distro_name = StringField::unavailable(os_release.status);
+    info.distro_version = StringField::unavailable(os_release.status);
+    info.distro_id = StringField::unavailable(os_release.status);
+  } else {
+    detail::KeyValueMap values = parse_os_release(os_release.value);
+    info.distro_name = os_release_field(values, {"PRETTY_NAME", "NAME"});
+    info.distro_version = os_release_field(values, {"VERSION_ID", "VERSION"});
+    info.distro_id = os_release_field(values, {"ID"});
+  }
 
   return info;
 }

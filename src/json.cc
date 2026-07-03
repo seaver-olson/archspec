@@ -433,7 +433,7 @@ std::string to_json(const IsaFeatures& features) {
   add_field(obj, "x86_avx512dq", features.x86_avx512dq);
   add_field(obj, "x86_avx512cd", features.x86_avx512cd);
   add_field(obj, "x86_avx512bw", features.x86_avx512bw);
-  add_field(obj, "x86_avx512v1", features.x86_avx512vl);
+  add_field(obj, "x86_avx512vl", features.x86_avx512vl);
 
   add_field(obj, "x86_aes", features.x86_aes);
   add_field(obj, "x86_sha", features.x86_sha);
