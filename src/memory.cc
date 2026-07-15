@@ -3,7 +3,13 @@
 
 #include <map>
 #include <sstream>
+
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
 #include <unistd.h>
+#endif
 
 namespace archspec {
 namespace {
@@ -21,8 +27,9 @@ std::map<std::string, std::uint64_t> parse_meminfo_values(const std::string& tex
 
     std::string key = detail::trim(line.substr(0, colon));
     std::istringstream value_stream(line.substr(colon + 1));
+    std::string number;
     std::uint64_t value = 0;
-    if (value_stream >> value) {
+    if (value_stream >> number && detail::parse_u64(number, value)) {
       values[key] = value;
     }
   }
@@ -128,12 +135,27 @@ MemoryInfo Collector::collect_memory() const {
     info.hugepages_free = U64Field::unavailable(meminfo.status);
   }
 
+#if defined(_WIN32)
+  SYSTEM_INFO system_info {};
+  GetNativeSystemInfo(&system_info);
+  info.page_size_bytes = U64Field::value(system_info.dwPageSize);
+
+  if (!info.total_kb.valid()) {
+    MEMORYSTATUSEX memory_status {};
+    memory_status.dwLength = sizeof(memory_status);
+    if (GlobalMemoryStatusEx(&memory_status)) {
+      info.total_kb = U64Field::value(memory_status.ullTotalPhys / 1024);
+      info.available_kb = U64Field::value(memory_status.ullAvailPhys / 1024);
+    }
+  }
+#else
   long page = sysconf(_SC_PAGESIZE);
   if (page > 0) {
     info.page_size_bytes = U64Field::value(static_cast<std::uint64_t>(page));
   } else {
     info.page_size_bytes = U64Field::unavailable(Status::not_found);
   }
+#endif
 
   info.transparent_hugepages_enabled = transparent_hugepages_enabled(options_);
   info.numa_nodes = collect_numa_nodes(options_);

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/seaver-olson/archspec/main/schema/archspec-report-v1.schema.json",
+  "title": "ArchSpec Inspect report v1",
+  "type": "object",
+  "required": ["schema_version", "producer", "collected_categories", "data"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "producer": {
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "const": "archspec-inspect" },
+        "version": { "type": "string" }
+      }
+    },
+    "collected_categories": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/categoryName" }
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "os": { "$ref": "#/$defs/categoryData" },
+        "cpu": { "$ref": "#/$defs/categoryData" },
+        "isa": { "$ref": "#/$defs/categoryData" },
+        "cache": { "$ref": "#/$defs/categoryData" },
+        "memory": { "$ref": "#/$defs/categoryData" },
+        "pci": { "$ref": "#/$defs/categoryData" },
+        "gpu": { "$ref": "#/$defs/categoryData" },
+        "perf": { "$ref": "#/$defs/categoryData" },
+        "block": { "$ref": "#/$defs/categoryData" },
+        "net": { "$ref": "#/$defs/categoryData" },
+        "thermal": { "$ref": "#/$defs/categoryData" },
+        "power": { "$ref": "#/$defs/categoryData" },
+        "virtualization": { "$ref": "#/$defs/categoryData" },
+        "platform": { "$ref": "#/$defs/categoryData" }
+      }
+    }
+  },
+  "$defs": {
+    "categoryName": {
+      "enum": [
+        "os", "cpu", "isa", "cache", "memory", "pci", "gpu", "perf",
+        "block", "net", "thermal", "power", "virtualization", "platform"
+      ]
+    },
+    "status": {
+      "enum": [
+        "ok", "unsupported", "perm_denied", "not_found", "parse_error",
+        "invalid_arg", "redacted", "internal_error"
+      ]
+    },
+    "field": {
+      "type": "object",
+      "required": ["valid", "status"],
+      "properties": {
+        "valid": { "type": "boolean" },
+        "status": { "$ref": "#/$defs/status" },
+        "value": { "type": ["string", "number", "boolean"] }
+      }
+    },
+    "categoryData": {
+      "type": "object",
+      "description": "A versioned category object. Leaf values use the field envelope defined in $defs.field."
+    }
+  }
+}

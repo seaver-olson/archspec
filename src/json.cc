@@ -105,7 +105,7 @@ std::string field_to_json(const StringField& field) {
   JsonObject obj;
 
   obj.add_bool("valid", field.valid());
-  obj.add_string("status", to_string(field.status()));
+  obj.add_string("status", status_code(field.status()));
   if (field.valid()) {
     obj.add_string("value", field.value());
   }
@@ -116,7 +116,7 @@ std::string field_to_json(const BoolField& field) {
   JsonObject obj;
 
   obj.add_bool("valid", field.valid());
-  obj.add_string("status", to_string(field.status()));
+  obj.add_string("status", status_code(field.status()));
 
   if (field.valid()) {
     obj.add_bool("value", field.value());
@@ -129,7 +129,7 @@ std::string field_to_json(const U32Field& field) {
   JsonObject obj;
 
   obj.add_bool("valid", field.valid());
-  obj.add_string("status", to_string(field.status()));
+  obj.add_string("status", status_code(field.status()));
 
   if (field.valid()) {
     obj.add_u64("value", field.value());
@@ -142,7 +142,7 @@ std::string field_to_json(const U64Field& field) {
   JsonObject obj;
 
   obj.add_bool("valid", field.valid());
-  obj.add_string("status", to_string(field.status()));
+  obj.add_string("status", status_code(field.status()));
 
   if (field.valid()) {
     obj.add_u64("value", field.value());
@@ -155,7 +155,7 @@ std::string field_to_json(const I64Field& field) {
   JsonObject obj;
 
   obj.add_bool("valid", field.valid());
-  obj.add_string("status", to_string(field.status()));
+  obj.add_string("status", status_code(field.status()));
 
   if (field.valid()) {
     obj.add_i64("value", field.value());
@@ -333,6 +333,101 @@ std::string thermal_zone_to_json(const ThermalZoneInfo& zone) {
 }
 
 } // anonymous namespace
+
+std::string to_json(const Report& report) {
+  JsonObject root;
+  root.add_string("schema_version", report_schema_version);
+
+  JsonObject producer;
+  producer.add_string("name", "archspec-inspect");
+  producer.add_string("version", version);
+  root.add_raw("producer", producer.str());
+
+  struct CategoryEntry {
+    CollectCategory category;
+    const char* name;
+  };
+  const CategoryEntry categories[] = {
+      {CollectCategory::os, "os"},
+      {CollectCategory::cpu, "cpu"},
+      {CollectCategory::isa, "isa"},
+      {CollectCategory::cache, "cache"},
+      {CollectCategory::memory, "memory"},
+      {CollectCategory::pci, "pci"},
+      {CollectCategory::gpu, "gpu"},
+      {CollectCategory::perf, "perf"},
+      {CollectCategory::block, "block"},
+      {CollectCategory::net, "net"},
+      {CollectCategory::thermal, "thermal"},
+      {CollectCategory::power, "power"},
+      {CollectCategory::virtualization, "virtualization"},
+      {CollectCategory::platform, "platform"},
+  };
+
+  std::ostringstream selected;
+  selected << "[";
+  bool first = true;
+  for (const CategoryEntry& entry : categories) {
+    if (!has_category(report.categories, entry.category)) {
+      continue;
+    }
+    if (!first) {
+      selected << ",";
+    }
+    selected << json_string(entry.name);
+    first = false;
+  }
+  selected << "]";
+  root.add_raw("collected_categories", selected.str());
+
+  JsonObject data;
+  const SystemInfo& info = report.system;
+  if (has_category(report.categories, CollectCategory::os)) {
+    data.add_raw("os", to_json(info.os_info));
+  }
+  if (has_category(report.categories, CollectCategory::cpu)) {
+    data.add_raw("cpu", to_json(info.cpu_info));
+  }
+  if (has_category(report.categories, CollectCategory::isa)) {
+    data.add_raw("isa", to_json(info.isa_features));
+  }
+  if (has_category(report.categories, CollectCategory::cache)) {
+    data.add_raw("cache", to_json(info.cache_list));
+  }
+  if (has_category(report.categories, CollectCategory::memory)) {
+    data.add_raw("memory", to_json(info.memory_info));
+  }
+  if (has_category(report.categories, CollectCategory::pci)) {
+    data.add_raw("pci", to_json(info.pci_devices));
+  }
+  if (has_category(report.categories, CollectCategory::gpu)) {
+    data.add_raw("gpu", to_json(info.gpu_list));
+  }
+  if (has_category(report.categories, CollectCategory::perf)) {
+    data.add_raw("perf", to_json(info.perf_info));
+  }
+  if (has_category(report.categories, CollectCategory::block)) {
+    data.add_raw("block", to_json(info.block_devices));
+  }
+  if (has_category(report.categories, CollectCategory::net)) {
+    data.add_raw("net", to_json(info.net_interfaces));
+  }
+  if (has_category(report.categories, CollectCategory::thermal)) {
+    data.add_raw("thermal", to_json(info.thermal_info));
+  }
+  if (has_category(report.categories, CollectCategory::power)) {
+    data.add_raw("power", to_json(info.power_info));
+  }
+  if (has_category(report.categories, CollectCategory::virtualization)) {
+    data.add_raw("virtualization", to_json(info.virtualization_info));
+  }
+  if (has_category(report.categories, CollectCategory::platform)) {
+    data.add_raw("platform", to_json(info.platform_info));
+  }
+  root.add_raw("data", data.str());
+
+  return root.str();
+}
 
 std::string to_json(const SystemInfo& info) {
   JsonObject obj;

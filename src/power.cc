@@ -5,14 +5,18 @@ namespace archspec {
 namespace {
 
 U64Field read_khz_as_mhz(const std::vector<std::string>& paths) {
+  Status last_status = Status::not_found;
   for (const std::string& path : paths) {
     U64Field khz = detail::read_u64_field(path);
     if (khz.valid()) {
       return U64Field::value(khz.value() / 1000);
     }
+    if (khz.status() != Status::not_found) {
+      last_status = khz.status();
+    }
   }
 
-  return U64Field::unavailable(Status::not_found);
+  return U64Field::unavailable(last_status);
 }
 
 bool is_mains_type(const std::string& type) {

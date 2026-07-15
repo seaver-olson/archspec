@@ -7,6 +7,10 @@
 #include <vector>
 
 namespace archspec {
+
+inline constexpr const char* version = "0.2.0";
+inline constexpr const char* report_schema_version = "1.0.0";
+
 enum class Status {
   ok,
   unsupported,
@@ -14,10 +18,12 @@ enum class Status {
   not_found,
   parse_error,
   invalid_arg,
+  redacted,
   internal_error
 };
 
 std::string to_string(Status status);
+std::string status_code(Status status);
 
 template <typename T>
 class Field {
@@ -48,8 +54,8 @@ public:
   T& get() { return value_; }
   
   // Return the value if valid, otherwise return the provided default value.
-  const T& value_or(const T& default_value) const {
-    return valid_ ? value_ : default_value;
+  T value_or(T default_value) const {
+    return valid_ ? value_ : std::move(default_value);
   }
 
   Status status() const { return status_; }
@@ -510,6 +516,17 @@ struct CollectOptions {
   bool allow_slow_probes = false;
   bool allow_vendor_libraries = false;
   bool allow_perf_open = false;
+
+  // Hostnames, kernel command lines, and network addresses can identify a
+  // machine. Disable them before sharing reports outside the host.
+  bool include_sensitive = true;
+};
+
+// A self-describing snapshot intended for interchange between processes and
+// languages. Only categories named by `categories` are serialized in reports.
+struct Report {
+  CollectCategory categories = CollectCategory::all;
+  SystemInfo system;
 };
  
 class Collector {
@@ -544,6 +561,8 @@ private:
 
 SystemInfo collect_system();
 SystemInfo collect_system(const CollectOptions& options);
+Report collect_report();
+Report collect_report(const CollectOptions& options);
 
 OsInfo collect_os();
 CpuInfo collect_cpu();
@@ -576,6 +595,7 @@ std::string to_json(const ThermalInfo& thermal_info);
 std::string to_json(const PowerInfo& power_info);
 std::string to_json(const VirtualizationInfo& virtualization_info);
 std::string to_json(const PlatformInfo& platform_info);
+std::string to_json(const Report& report);
 
 bool available(Status status);
 

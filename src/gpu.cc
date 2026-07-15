@@ -51,15 +51,18 @@ std::map<std::string, std::string> render_nodes_by_pci(const CollectOptions& opt
 }
 
 U64Field first_u64_file(const std::vector<std::string>& paths) {
+  Status last_status = Status::not_found;
   for (const std::string& path : paths) {
     U64Field value = detail::read_u64_field(path);
     if (value.valid()) {
       return value;
     }
+    if (value.status() != Status::not_found) {
+      last_status = value.status();
+    }
   }
 
-  return paths.empty() ? U64Field::unavailable(Status::not_found)
-                       : U64Field::unavailable(Status::not_found);
+  return U64Field::unavailable(last_status);
 }
 
 void fill_hwmon_fields(const std::string& pci_path, GpuInfo& gpu) {
@@ -70,7 +73,10 @@ void fill_hwmon_fields(const std::string& pci_path, GpuInfo& gpu) {
       gpu.temp_millidegree_c = detail::read_u64_field(detail::join_path(path, "temp1_input"));
     }
     if (!gpu.power_mw.valid()) {
-      gpu.power_mw = detail::read_u64_field(detail::join_path(path, "power1_average"), 1000);
+      U64Field power_uw = detail::read_u64_field(detail::join_path(path, "power1_average"));
+      if (power_uw.valid()) {
+        gpu.power_mw = U64Field::value(power_uw.value() / 1000);
+      }
     }
   }
 }
@@ -110,7 +116,11 @@ GpuInfo gpu_from_pci(
 
   fill_hwmon_fields(pci_path, gpu);
 
-  gpu.cuda_available = BoolField::value(gpu.vendor == GpuVendor::nvidia);
+  // A NVIDIA PCI device does not prove that a usable CUDA runtime is present.
+  // Vendor-library probing remains opt-in and is not implemented yet.
+  gpu.cuda_available = gpu.vendor == GpuVendor::nvidia
+      ? BoolField::unavailable(Status::unsupported)
+      : BoolField::value(false);
   gpu.cuda_compute_capability = StringField::unavailable(Status::unsupported);
 
   (void)options;
@@ -139,11 +149,13 @@ GpuList Collector::collect_gpu() const {
     }
 
     std::string pci_address = detail::basename(*target);
+    if (!seen.insert(pci_address).second) {
+      continue;
+    }
     std::string pci_path = detail::join_path(pci_root, pci_address);
     GpuInfo gpu = gpu_from_pci(options_, pci_address, pci_path, render_nodes);
     gpu.drm_card = StringField::value(detail::dev_path(options_, "/dri/" + card));
 
-    seen.insert(pci_address);
     list.entries.push_back(gpu);
   }
 

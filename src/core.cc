@@ -12,8 +12,23 @@ std::string to_string(Status status) {
     case Status::not_found: return "not found";
     case Status::parse_error: return "parse error";
     case Status::invalid_arg: return "invalid argument";
+    case Status::redacted: return "redacted";
     case Status::internal_error: return "internal error";
     default: return "unknown";
+  }
+}
+
+std::string status_code(Status status) {
+  switch (status) {
+    case Status::ok: return "ok";
+    case Status::unsupported: return "unsupported";
+    case Status::perm_denied: return "perm_denied";
+    case Status::not_found: return "not_found";
+    case Status::parse_error: return "parse_error";
+    case Status::invalid_arg: return "invalid_arg";
+    case Status::redacted: return "redacted";
+    case Status::internal_error: return "internal_error";
+    default: return "internal_error";
   }
 }
 
@@ -94,6 +109,17 @@ SystemInfo collect_system() {
 
 SystemInfo collect_system(const CollectOptions& options) {
   return Collector{options}.collect();
+}
+
+Report collect_report() {
+  return collect_report(CollectOptions{});
+}
+
+Report collect_report(const CollectOptions& options) {
+  Report report;
+  report.categories = options.categories;
+  report.system = Collector{options}.collect();
+  return report;
 }
 
 }

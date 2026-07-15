@@ -1,4 +1,9 @@
 *.o
+*.a
 *.exe
 *.out
 app
+archspec-summary
+archspec-inspect
+archspec-tests
+build/

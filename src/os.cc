@@ -1,9 +1,15 @@
 #include "aview.hh"
 #include "internal.hh"
 
+#include <map>
+
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
 #include <sys/utsname.h>
 #include <unistd.h>
-#include <map>
+#endif
 
 namespace archspec {
 namespace {
@@ -43,6 +49,30 @@ StringField os_release_field(
 OsInfo Collector::collect_os() const {
   OsInfo info;
 
+#if defined(_WIN32)
+  info.kernel_name = StringField::value("Windows");
+  info.kernel_release = StringField::unavailable(Status::unsupported);
+  info.kernel_version = StringField::unavailable(Status::unsupported);
+
+  SYSTEM_INFO system_info {};
+  GetNativeSystemInfo(&system_info);
+  switch (system_info.wProcessorArchitecture) {
+    case PROCESSOR_ARCHITECTURE_AMD64: info.machine = StringField::value("x86_64"); break;
+    case PROCESSOR_ARCHITECTURE_INTEL: info.machine = StringField::value("x86"); break;
+    case PROCESSOR_ARCHITECTURE_ARM: info.machine = StringField::value("arm"); break;
+    case PROCESSOR_ARCHITECTURE_ARM64: info.machine = StringField::value("aarch64"); break;
+    default: info.machine = StringField::value("unknown"); break;
+  }
+
+  char hostname[MAX_COMPUTERNAME_LENGTH + 1] = {};
+  DWORD hostname_size = sizeof(hostname);
+  if (GetComputerNameA(hostname, &hostname_size)) {
+    info.hostname = StringField::value(hostname);
+  } else {
+    info.hostname = StringField::unavailable(Status::internal_error);
+  }
+  info.page_size = U64Field::value(system_info.dwPageSize);
+#else
   struct utsname uts {};
   if (uname(&uts) == 0) {
     info.kernel_name = StringField::value(uts.sysname);
@@ -64,6 +94,7 @@ OsInfo Collector::collect_os() const {
   } else {
     info.page_size = U64Field::unavailable(Status::not_found);
   }
+#endif
 
   info.word_size = U64Field::value(static_cast<std::uint64_t>(sizeof(void*) * 8));
 
@@ -75,12 +106,22 @@ OsInfo Collector::collect_os() const {
       detail::proc_path(options_, "/cmdline"),
       false
   );
+  if (!options_.include_sensitive) {
+    info.hostname = StringField::unavailable(Status::redacted);
+    info.cmdline = StringField::unavailable(Status::redacted);
+  }
 
   detail::ReadResult os_release = detail::read_file(detail::etc_path(options_, "/os-release"));
   if (os_release.status != Status::ok) {
+#if defined(_WIN32)
+    info.distro_name = StringField::value("Windows");
+    info.distro_version = StringField::unavailable(Status::unsupported);
+    info.distro_id = StringField::value("windows");
+#else
     info.distro_name = StringField::unavailable(os_release.status);
     info.distro_version = StringField::unavailable(os_release.status);
     info.distro_id = StringField::unavailable(os_release.status);
+#endif
   } else {
     detail::KeyValueMap values = parse_os_release(os_release.value);
     info.distro_name = os_release_field(values, {"PRETTY_NAME", "NAME"});

@@ -1,11 +1,15 @@
 #include "aview.hh"
 #include "internal.hh"
 
-#include <sys/utsname.h>
 #include <algorithm>
 #include <map>
 #include <set>
 #include <sstream>
+#include <thread>
+
+#if !defined(_WIN32)
+#include <sys/utsname.h>
+#endif
 
 namespace archspec {
 namespace {
@@ -49,7 +53,7 @@ std::vector<std::pair<std::uint64_t, std::string>> cpu_dirs(const CollectOptions
     }
 
     std::uint64_t id = 0;
-    if (!detail::parse_u64(name.substr(3), id)) {
+    if (!detail::parse_u64(name.substr(3), id) || id > UINT32_MAX) {
       continue;
     }
 
@@ -197,6 +201,21 @@ CpuInfo Collector::collect_cpu() const {
   CpuInfo info;
   info.arch = ArchType::unknown;
 
+#if defined(_WIN32)
+#if defined(_M_X64) || defined(__x86_64__)
+  std::string machine = "x86_64";
+#elif defined(_M_IX86) || defined(__i386__)
+  std::string machine = "x86";
+#elif defined(_M_ARM64) || defined(__aarch64__)
+  std::string machine = "aarch64";
+#elif defined(_M_ARM) || defined(__arm__)
+  std::string machine = "arm";
+#else
+  std::string machine = "unknown";
+#endif
+  info.arch_name = StringField::value(machine);
+  info.arch = arch_from_machine(machine);
+#else
   struct utsname uts {};
   if (uname(&uts) == 0) {
     std::string machine = uts.machine;
@@ -205,6 +224,7 @@ CpuInfo Collector::collect_cpu() const {
   } else {
     info.arch_name = StringField::unavailable(Status::internal_error);
   }
+#endif
 
   detail::ReadResult cpuinfo = detail::read_file(detail::proc_path(options_, "/cpuinfo"));
   std::vector<detail::KeyValueMap> blocks;
@@ -244,6 +264,16 @@ CpuInfo Collector::collect_cpu() const {
   }
   if (!info.possible_cpu_count.valid() && !blocks.empty()) {
     info.possible_cpu_count = U64Field::value(blocks.size());
+  }
+  const unsigned int hardware_threads = std::thread::hardware_concurrency();
+  if (!info.present_cpu_count.valid() && hardware_threads != 0) {
+    info.present_cpu_count = U64Field::value(hardware_threads);
+  }
+  if (!info.online_cpu_count.valid() && hardware_threads != 0) {
+    info.online_cpu_count = U64Field::value(hardware_threads);
+  }
+  if (!info.possible_cpu_count.valid() && hardware_threads != 0) {
+    info.possible_cpu_count = U64Field::value(hardware_threads);
   }
 
   std::map<std::uint64_t, detail::KeyValueMap> cpuinfo_by_id = blocks_by_processor(blocks);
@@ -348,7 +378,9 @@ CpuInfo Collector::collect_cpu() const {
   if (!flags.empty()) {
     info.is_virtualized = BoolField::value(flags.find("hypervisor") != flags.end());
   } else {
-    info.is_virtualized = BoolField::unavailable(cpuinfo.status);
+    info.is_virtualized = BoolField::unavailable(
+        cpuinfo.status == Status::ok ? Status::not_found : cpuinfo.status
+    );
   }
 
   auto hypervisor_vendor = detail::string_from_map(first, {"Hypervisor vendor"});

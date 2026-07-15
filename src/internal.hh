@@ -7,15 +7,15 @@
 #include <cctype>
 #include <climits>
 #include <cstdlib>
-#include <dirent.h>
+#include <filesystem>
 #include <fstream>
 #include <map>
+#include <limits>
 #include <optional>
 #include <set>
 #include <sstream>
 #include <string>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <system_error>
 #include <vector>
 
 namespace archspec {
@@ -48,12 +48,12 @@ inline std::string basename(const std::string& path) {
     return {};
   }
 
-  std::size_t end = path.find_last_not_of('/');
+  std::size_t end = path.find_last_not_of("/\\");
   if (end == std::string::npos) {
     return "/";
   }
 
-  std::size_t slash = path.find_last_of('/', end);
+  std::size_t slash = path.find_last_of("/\\", end);
   if (slash == std::string::npos) {
     return path.substr(0, end + 1);
   }
@@ -94,31 +94,28 @@ inline std::string dev_path(const CollectOptions& options, const std::string& su
 }
 
 inline Status status_for_path_error(const std::string& path) {
-  struct stat st {};
-  if (stat(path.c_str(), &st) == 0) {
+  std::error_code error;
+  if (std::filesystem::exists(path, error)) {
     return Status::perm_denied;
   }
-
-  switch (errno) {
-    case EACCES:
-    case EPERM:
-      return Status::perm_denied;
-    case ENOENT:
-    case ENOTDIR:
-      return Status::not_found;
-    default:
-      return Status::internal_error;
+  if (!error || error == std::errc::no_such_file_or_directory ||
+      error == std::errc::not_a_directory) {
+    return Status::not_found;
   }
+  if (error == std::errc::permission_denied || error == std::errc::operation_not_permitted) {
+    return Status::perm_denied;
+  }
+  return Status::internal_error;
 }
 
 inline bool path_exists(const std::string& path) {
-  struct stat st {};
-  return stat(path.c_str(), &st) == 0;
+  std::error_code error;
+  return std::filesystem::exists(path, error);
 }
 
 inline bool path_is_dir(const std::string& path) {
-  struct stat st {};
-  return stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+  std::error_code error;
+  return std::filesystem::is_directory(path, error);
 }
 
 inline ReadResult read_file(const std::string& path, std::ios::openmode mode = std::ios::in) {
@@ -162,7 +159,10 @@ inline StringField read_string_field(const std::string& path, bool trim_value = 
 
 inline bool parse_u64(const std::string& text, std::uint64_t& value) {
   std::string trimmed = trim(text);
-  if (trimmed.empty()) {
+  // strtoull accepts a leading minus sign and returns its modulo-2^N
+  // representation.  That is useful for C compatibility, but never a valid
+  // representation for the non-negative values exposed by procfs and sysfs.
+  if (trimmed.empty() || trimmed.front() == '-') {
     return false;
   }
 
@@ -219,6 +219,9 @@ inline U64Field read_u64_field(const std::string& path, std::uint64_t multiplier
     return U64Field::unavailable(Status::parse_error);
   }
 
+  if (multiplier != 0 && value > std::numeric_limits<std::uint64_t>::max() / multiplier) {
+    return U64Field::unavailable(Status::parse_error);
+  }
   return U64Field::value(value * multiplier);
 }
 
@@ -252,40 +255,32 @@ inline I64Field read_i64_field(const std::string& path) {
 
 inline std::vector<std::string> list_dir(const std::string& path) {
   std::vector<std::string> entries;
-  DIR* dir = opendir(path.c_str());
-  if (dir == nullptr) {
+  std::error_code error;
+  std::filesystem::directory_iterator iterator(path, error);
+  if (error) {
     return entries;
   }
 
-  while (dirent* entry = readdir(dir)) {
-    std::string name = entry->d_name;
-    if (name == "." || name == "..") {
-      continue;
+  const std::filesystem::directory_iterator end;
+  while (iterator != end) {
+    entries.push_back(iterator->path().filename().string());
+    iterator.increment(error);
+    if (error) {
+      break;
     }
-    entries.push_back(name);
   }
 
-  closedir(dir);
   std::sort(entries.begin(), entries.end());
   return entries;
 }
 
 inline std::optional<std::string> read_symlink_target(const std::string& path) {
-  std::vector<char> buffer(256);
-
-  while (true) {
-    ssize_t size = readlink(path.c_str(), buffer.data(), buffer.size() - 1);
-    if (size < 0) {
-      return std::nullopt;
-    }
-
-    if (static_cast<std::size_t>(size) < buffer.size() - 1) {
-      buffer[static_cast<std::size_t>(size)] = '\0';
-      return std::string(buffer.data());
-    }
-
-    buffer.resize(buffer.size() * 2);
+  std::error_code error;
+  std::filesystem::path target = std::filesystem::read_symlink(path, error);
+  if (error) {
+    return std::nullopt;
   }
+  return target.string();
 }
 
 inline StringField read_symlink_basename_field(const std::string& path) {
@@ -337,6 +332,9 @@ inline std::optional<std::uint64_t> cpu_list_count(const std::string& text) {
       if (!parse_u64(token, cpu)) {
         return std::nullopt;
       }
+      if (count == std::numeric_limits<std::uint64_t>::max()) {
+        return std::nullopt;
+      }
       ++count;
     } else {
       std::uint64_t first = 0;
@@ -346,7 +344,12 @@ inline std::optional<std::uint64_t> cpu_list_count(const std::string& text) {
           last < first) {
         return std::nullopt;
       }
-      count += last - first + 1;
+      const std::uint64_t range_count = last - first + 1;
+      if (range_count == 0 ||
+          count > std::numeric_limits<std::uint64_t>::max() - range_count) {
+        return std::nullopt;
+      }
+      count += range_count;
     }
 
     if (comma == std::string::npos) {
@@ -477,7 +480,7 @@ inline U64Field u64_from_map(
 
 inline bool parse_size_bytes(const std::string& text, std::uint64_t& bytes) {
   std::string value = trim(text);
-  if (value.empty()) {
+  if (value.empty() || value.front() == '-') {
     return false;
   }
 
@@ -504,6 +507,9 @@ inline bool parse_size_bytes(const std::string& text, std::uint64_t& bytes) {
     return false;
   }
 
+  if (multiplier != 0 && parsed > std::numeric_limits<std::uint64_t>::max() / multiplier) {
+    return false;
+  }
   bytes = static_cast<std::uint64_t>(parsed) * multiplier;
   return true;
 }

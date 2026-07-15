@@ -36,7 +36,7 @@ std::vector<std::pair<std::uint64_t, std::string>> cpu_dirs(const CollectOptions
     }
 
     std::uint64_t id = 0;
-    if (detail::parse_u64(name.substr(3), id)) {
+    if (detail::parse_u64(name.substr(3), id) && id <= UINT32_MAX) {
       cpus.push_back({id, detail::join_path(root, name)});
     }
   }
@@ -51,6 +51,12 @@ std::string cache_key(const CacheInfo& cache) {
       << "|" << to_string(cache.type)
       << "|" << (cache.size.valid() ? std::to_string(cache.size.value()) : "?")
       << "|" << (cache.shared_cpu_list.valid() ? cache.shared_cpu_list.value() : "?");
+  // shared_cpu_list is the stable identity of a cache shared by several
+  // logical CPUs.  When it is unavailable, retain one entry per CPU instead
+  // of accidentally coalescing unrelated, partially readable caches.
+  if (!cache.shared_cpu_list.valid() && cache.cpu_id.valid()) {
+    out << "|cpu=" << cache.cpu_id.value();
+  }
   return out.str();
 }
 

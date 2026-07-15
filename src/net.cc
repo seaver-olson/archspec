@@ -1,14 +1,17 @@
 #include "aview.hh"
 #include "internal.hh"
 
-#include <arpa/inet.h>
 #include <cstring>
-#include <ifaddrs.h>
 #include <map>
-#include <netinet/in.h>
 #include <sstream>
-#include <sys/socket.h>
 #include <vector>
+
+#if !defined(_WIN32)
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#endif
 
 namespace archspec {
 namespace {
@@ -29,8 +32,17 @@ std::string join_values(const std::vector<std::string>& values) {
   return out.str();
 }
 
-std::map<std::string, InterfaceAddresses> collect_addresses() {
+std::map<std::string, InterfaceAddresses> collect_addresses(const CollectOptions& options) {
   std::map<std::string, InterfaceAddresses> addresses;
+#if defined(_WIN32)
+  (void)options;
+  return addresses;
+#else
+  // getifaddrs always reads the running host.  Do not mix those addresses
+  // into an offline or fixture-backed sysfs snapshot.
+  if (options.sysfs_root != "/sys") {
+    return addresses;
+  }
   ifaddrs* interfaces = nullptr;
 
   if (getifaddrs(&interfaces) != 0) {
@@ -60,6 +72,7 @@ std::map<std::string, InterfaceAddresses> collect_addresses() {
 
   freeifaddrs(interfaces);
   return addresses;
+#endif
 }
 
 BoolField read_bool_number(const std::string& path) {
@@ -88,7 +101,7 @@ U64Field read_speed_mbps(const std::string& path) {
 NetInterfaceList Collector::collect_net() const {
   NetInterfaceList list;
   std::string root = detail::sys_path(options_, "/class/net");
-  std::map<std::string, InterfaceAddresses> addresses = collect_addresses();
+  std::map<std::string, InterfaceAddresses> addresses = collect_addresses(options_);
 
   for (const std::string& name : detail::list_dir(root)) {
     std::string path = detail::join_path(root, name);
@@ -112,6 +125,12 @@ NetInterfaceList Collector::collect_net() const {
     } else {
       iface.ipv4_addresses = StringField::unavailable(Status::not_found);
       iface.ipv6_addresses = StringField::unavailable(Status::not_found);
+    }
+
+    if (!options_.include_sensitive) {
+      iface.mac_address = StringField::unavailable(Status::redacted);
+      iface.ipv4_addresses = StringField::unavailable(Status::redacted);
+      iface.ipv6_addresses = StringField::unavailable(Status::redacted);
     }
 
     list.entries.push_back(iface);

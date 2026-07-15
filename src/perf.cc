@@ -17,6 +17,7 @@ namespace {
 struct CpuFlagResult {
   Status status = Status::not_found;
   std::set<std::string> flags;
+  bool x86 = false;
 
   bool valid() const { return status == Status::ok; }
 };
@@ -24,22 +25,22 @@ struct CpuFlagResult {
 CpuFlagResult read_cpu_flags(const CollectOptions& options) {
   detail::ReadResult cpuinfo = detail::read_file(detail::proc_path(options, "/cpuinfo"));
   if (cpuinfo.status != Status::ok) {
-    return {cpuinfo.status, {}};
+    return {cpuinfo.status, {}, false};
   }
 
   std::vector<detail::KeyValueMap> blocks = detail::parse_colon_blocks(cpuinfo.value);
   if (blocks.empty()) {
-    return {Status::parse_error, {}};
+    return {Status::parse_error, {}, false};
   }
 
   for (const char* key : {"flags", "Features", "isa"}) {
     auto value = detail::map_value(blocks.front(), key);
     if (value) {
-      return {Status::ok, detail::word_set(*value)};
+      return {Status::ok, detail::word_set(*value), std::string(key) == "flags"};
     }
   }
 
-  return {Status::not_found, {}};
+  return {Status::not_found, {}, false};
 }
 
 I64Field read_perf_event_paranoid(const CollectOptions& options) {
@@ -160,9 +161,15 @@ PerfCounterInfo Collector::collect_perf() const {
   fill_hardware_counter_availability(info.available, options_.allow_perf_open);
 
   CpuFlagResult flags = read_cpu_flags(options_);
-  info.rdtsc_available = flag_field(flags, "tsc");
-  info.rdtscp_available = flag_field(flags, "rdtscp");
-  info.invariant_tsc = any_flag_field(flags, {"constant_tsc", "nonstop_tsc"});
+  if (flags.valid() && !flags.x86) {
+    info.rdtsc_available = BoolField::unavailable(Status::unsupported);
+    info.rdtscp_available = BoolField::unavailable(Status::unsupported);
+    info.invariant_tsc = BoolField::unavailable(Status::unsupported);
+  } else {
+    info.rdtsc_available = flag_field(flags, "tsc");
+    info.rdtscp_available = flag_field(flags, "rdtscp");
+    info.invariant_tsc = any_flag_field(flags, {"constant_tsc", "nonstop_tsc"});
+  }
 
   return info;
 }
